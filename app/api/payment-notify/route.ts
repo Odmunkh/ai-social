@@ -1,15 +1,30 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(req: Request) {
   try {
+    const apiKey = process.env.RESEND_API_KEY;
+    const adminEmail = process.env.ADMIN_EMAIL;
+
+    if (!apiKey) {
+      console.error("Missing RESEND_API_KEY");
+      return new Response("Server email configuration missing", {
+        status: 500,
+      });
+    }
+
+    if (!adminEmail) {
+      console.error("Missing ADMIN_EMAIL");
+      return new Response("Admin email configuration missing", { status: 500 });
+    }
+
+    const resend = new Resend(apiKey);
+
     const body = await req.json();
     const { fullName, email, resumeId, paymentReference } = body;
 
     const data = await resend.emails.send({
       from: "CV Builder <onboarding@resend.dev>",
-      to: process.env.ADMIN_EMAIL!,
+      to: adminEmail,
       subject: "New payment confirmation request",
       html: `
         <h2>New payment confirmation request</h2>
