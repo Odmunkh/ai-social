@@ -593,16 +593,32 @@ export default function Page() {
 
       const reference = paymentReference || generatePaymentReference(resumeId);
 
-      const { error: paymentError } = await supabase.from("payments").insert({
-        resume_id: resumeId,
-        payer_name: formData.fullName,
-        bank_note: "Golomt Bank / Odmunkh / 1105408296",
-        transaction_note: reference,
-        status: "pending",
-      });
+      // 1. өмнө нь payment бүртгэгдсэн эсэхийг шалгах
+      const { data: existingPayment, error: existingPaymentError } =
+        await supabase
+          .from("payments")
+          .select("id, status, transaction_note")
+          .eq("resume_id", resumeId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      if (paymentError) throw paymentError;
+      if (existingPaymentError) throw existingPaymentError;
 
+      // 2. байвал дахин insert хийхгүй
+      if (!existingPayment) {
+        const { error: paymentError } = await supabase.from("payments").insert({
+          resume_id: resumeId,
+          payer_name: formData.fullName,
+          bank_note: "Golomt Bank / Odmunkh / 1105408296",
+          transaction_note: reference,
+          status: "pending",
+        });
+
+        if (paymentError) throw paymentError;
+      }
+
+      // 3. resume status update
       const { error: resumeError } = await supabase
         .from("resumes")
         .update({
@@ -612,8 +628,9 @@ export default function Page() {
 
       if (resumeError) throw resumeError;
 
+      // 4. notify endpoint
       try {
-        await fetch("/api/payment-notify", {
+        const notifyRes = await fetch("/api/payment-notify", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -625,6 +642,11 @@ export default function Page() {
             paymentReference: reference,
           }),
         });
+
+        if (!notifyRes.ok) {
+          const text = await notifyRes.text();
+          console.error("Payment notify failed:", text);
+        }
       } catch (notifyError) {
         console.error("Payment notify error:", notifyError);
       }
@@ -632,9 +654,16 @@ export default function Page() {
       setPaymentReference(reference);
       setResumeStatus("pending_payment");
       setPaymentSubmitted(true);
-    } catch (error) {
-      console.error("Payment submit error:", error);
-      alert("Төлбөрийн хүсэлт илгээх үед алдаа гарлаа.");
+    } catch (error: any) {
+      console.error("Payment submit error:", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        full: error,
+      });
+
+      alert(error?.message || "Төлбөрийн хүсэлт илгээх үед алдаа гарлаа.");
     } finally {
       setSubmittingPayment(false);
     }
@@ -1310,7 +1339,9 @@ export default function Page() {
           transition={{ duration: 0.25 }}
           className="mb-8 flex items-center justify-center"
         >
-          <div className="text-2xl font-bold tracking-tight text-gray-900 "></div>
+          <div className="text-2xl font-bold tracking-tight text-gray-900 ">
+            CV Builder
+          </div>
         </motion.div>
 
         <motion.div
