@@ -1,5 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer } from "react-toastify";
 
 export const metadata: Metadata = {
   title: "CV Forge",
@@ -13,7 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <ToastContainer position="top-right" autoClose={2500} theme="dark" />
+      </body>
     </html>
   );
 }

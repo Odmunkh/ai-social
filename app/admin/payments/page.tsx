@@ -1,313 +1,216 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { toast } from "react-toastify";
 
-type PaymentRow = {
+type PaymentRequest = {
   id: string;
-  resume_id: string;
-  payer_name: string | null;
-  transaction_note: string | null;
-  bank_note?: string | null;
+  name: string;
+  phone: string;
+  email: string | null;
+  plan: string;
+  amount: number;
+  transaction_note: string;
   status: string;
   created_at: string;
 };
 
-type FilterStatus = "pending" | "approved" | "all";
-
 export default function AdminPaymentsPage() {
-  const [payments, setPayments] = useState<PaymentRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>("pending");
-  const [copiedMessage, setCopiedMessage] = useState("");
+  const [requests, setRequests] = useState<PaymentRequest[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<
+    "pending" | "approved" | "rejected" | "all"
+  >("pending");
 
-  const fetchPayments = async () => {
-    try {
-      setLoading(true);
+  async function loadRequests() {
+    setLoading(true);
 
-      const { data, error } = await supabase
-        .from("payments")
-        .select(
-          "id, resume_id, payer_name, transaction_note, bank_note, status, created_at",
-        )
-        .order("created_at", { ascending: false });
+    let query = supabase
+      .from("payment_requests")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-      if (error) throw error;
+    if (filter !== "all") {
+      query = query.eq("status", filter);
+    }
 
-      setPayments(data || []);
-    } catch (error) {
-      console.error("Fetch payments error:", error);
-      alert("Payment жагсаалт унших үед алдаа гарлаа.");
-    } finally {
+    const { data, error } = await query;
+
+    if (error) {
+      console.error(error);
+      toast.error("Хүсэлтүүд унших үед алдаа гарлаа");
       setLoading(false);
+      return;
     }
-  };
 
-  const approvePayment = async (payment: PaymentRow) => {
-    try {
-      setApprovingId(payment.id);
+    setRequests(data || []);
+    setLoading(false);
+  }
 
-      const { error: paymentError } = await supabase
-        .from("payments")
-        .update({ status: "approved" })
-        .eq("id", payment.id);
+  async function updateStatus(id: string, status: "approved" | "rejected") {
+    if (status === "approved") {
+      const res = await fetch("/api/admin/approve-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ paymentId: id }),
+      });
 
-      if (paymentError) throw paymentError;
+      const data = await res.json();
 
-      const { error: resumeError } = await supabase
-        .from("resumes")
-        .update({ status: "approved" })
-        .eq("id", payment.resume_id);
+      if (!res.ok) {
+        toast.error(data.error || "Approve хийх үед алдаа гарлаа");
+        return;
+      }
 
-      if (resumeError) throw resumeError;
+      toast.success(`Approve хийлээ. ${data.creditsAdded} credit нэмэгдлээ`);
+    } else {
+      const { error } = await supabase
+        .from("payment_requests")
+        .update({ status })
+        .eq("id", id);
 
-      await fetchPayments();
-    } catch (error) {
-      console.error("Approve error:", error);
-      alert("Approve хийх үед алдаа гарлаа.");
-    } finally {
-      setApprovingId(null);
+      if (error) {
+        toast.error("Reject хийх үед алдаа гарлаа");
+        return;
+      }
+
+      toast.success("Reject хийлээ");
     }
-  };
 
-  const copyValue = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopiedMessage(`${label} хуулагдлаа`);
-      setTimeout(() => setCopiedMessage(""), 1500);
-    } catch (error) {
-      console.error("Copy error:", error);
-      alert("Хуулах үед алдаа гарлаа.");
-    }
-  };
+    setRequests((prev) => prev.filter((item) => item.id !== id));
+  }
 
   useEffect(() => {
-    fetchPayments();
-  }, []);
-
-  const filteredPayments = useMemo(() => {
-    let result = [...payments];
-
-    if (statusFilter !== "all") {
-      result = result.filter((payment) => payment.status === statusFilter);
-    }
-
-    const query = searchTerm.trim().toLowerCase();
-
-    if (query) {
-      result = result.filter((payment) => {
-        const transactionNote = (payment.transaction_note || "").toLowerCase();
-        const payerName = (payment.payer_name || "").toLowerCase();
-        const resumeId = (payment.resume_id || "").toLowerCase();
-
-        return (
-          transactionNote.includes(query) ||
-          payerName.includes(query) ||
-          resumeId.includes(query)
-        );
-      });
-    }
-
-    return result;
-  }, [payments, searchTerm, statusFilter]);
-
-  const pendingCount = payments.filter((p) => p.status === "pending").length;
-  const approvedCount = payments.filter((p) => p.status === "approved").length;
+    loadRequests();
+  }, [filter]);
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <main className="min-h-screen bg-[#050711] px-4 py-6 text-white">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Төлбөрийн хүсэлтүүд
-            </h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Шинээр ирсэн pending хүсэлтүүдийг эндээс approve хийнэ.
-            </p>
+            <p className="text-xs text-pink-400">Admin</p>
+            <h1 className="mt-1 text-2xl font-semibold">Төлбөрийн хүсэлтүүд</h1>
           </div>
 
           <button
-            type="button"
-            onClick={fetchPayments}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50"
+            onClick={loadRequests}
+            className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
           >
-            Шинэчлэх
+            Refresh
           </button>
         </div>
 
-        <div className="mb-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-sm text-gray-500">Pending</p>
-            <p className="mt-1 text-2xl font-bold text-amber-600">
-              {pendingCount}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-sm text-gray-500">Approved</p>
-            <p className="mt-1 text-2xl font-bold text-green-600">
-              {approvedCount}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-sm text-gray-500">Нийт</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">
-              {payments.length}
-            </p>
-          </div>
+        <div className="mb-5 flex flex-wrap gap-2">
+          {(["pending", "approved", "rejected", "all"] as const).map((item) => (
+            <button
+              key={item}
+              onClick={() => setFilter(item)}
+              className={`rounded-xl border px-4 py-2 text-sm ${
+                filter === item
+                  ? "border-pink-500 bg-pink-500 text-white"
+                  : "border-white/10 text-slate-300 hover:bg-white/5"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
         </div>
 
-        <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Гүйлгээний кодоор хайх
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Жишээ: CV-AB12CD"
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-black"
-              />
-              <p className="mt-2 text-xs text-gray-500">
-                Гүйлгээний утга, payer нэр, эсвэл resume id-гаар бас хайж болно.
-              </p>
-            </div>
+        <div className="space-y-3">
+          {loading && <p className="text-sm text-slate-400">Уншиж байна...</p>}
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Төлөв
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) =>
-                  setStatusFilter(e.target.value as FilterStatus)
-                }
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-black md:w-44"
-              >
-                <option value="pending">Зөвхөн pending</option>
-                <option value="approved">Зөвхөн approved</option>
-                <option value="all">Бүгд</option>
-              </select>
-            </div>
-          </div>
-        </div>
+          {!loading && requests.length === 0 && (
+            <p className="text-sm text-slate-400">Хүсэлт алга.</p>
+          )}
 
-        {copiedMessage && (
-          <div className="mb-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">
-            {copiedMessage}
-          </div>
-        )}
+          {requests.map((item) => {
+            const isCompact = filter !== "pending";
 
-        {loading ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600">
-            Уншиж байна...
-          </div>
-        ) : filteredPayments.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
-            Таарсан payment request алга байна.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredPayments.map((payment) => (
+            return (
               <div
-                key={payment.id}
-                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+                key={item.id}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-gray-500">Payer</p>
-                    <p className="text-base font-semibold text-gray-900">
-                      {payment.payer_name || "-"}
+                {isCompact ? (
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-white">
+                          {item.transaction_note}
+                        </p>
+
+                        <span
+                          className={`rounded-full px-2 py-1 text-[11px] ${
+                            item.status === "approved"
+                              ? "bg-green-500/10 text-green-300"
+                              : item.status === "rejected"
+                                ? "bg-red-500/10 text-red-300"
+                                : "bg-yellow-500/10 text-yellow-300"
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                      </div>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        {item.plan} · {item.amount?.toLocaleString()}₮ ·{" "}
+                        {new Date(item.created_at).toLocaleString("mn-MN")}
+                      </p>
+                    </div>
+
+                    <p className="text-xs text-slate-400">
+                      {item.phone} {item.email ? `· ${item.email}` : ""}
                     </p>
                   </div>
+                ) : (
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-medium">{item.name}</h2>
 
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      payment.status === "approved"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {payment.status}
-                  </span>
-                </div>
+                        <span className="rounded-full bg-yellow-500/10 px-2 py-1 text-[11px] text-yellow-300">
+                          {item.status}
+                        </span>
+                      </div>
 
-                <div className="mt-4 rounded-xl bg-gray-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                    Гүйлгээний утга
-                  </p>
+                      <div className="mt-3 grid gap-2 text-sm text-slate-300 md:grid-cols-2">
+                        <p>Утас: {item.phone}</p>
+                        <p>Email: {item.email || "-"}</p>
+                        <p>Багц: {item.plan}</p>
+                        <p>Дүн: {item.amount?.toLocaleString()}₮</p>
+                        <p>Гүйлгээний утга: {item.transaction_note}</p>
+                        <p>
+                          Огноо:{" "}
+                          {new Date(item.created_at).toLocaleString("mn-MN")}
+                        </p>
+                      </div>
+                    </div>
 
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-                    <p className="break-all text-lg font-bold text-gray-900">
-                      {payment.transaction_note || "-"}
-                    </p>
-
-                    {payment.transaction_note && (
+                    <div className="flex gap-2">
                       <button
-                        type="button"
-                        onClick={() =>
-                          copyValue(
-                            payment.transaction_note || "",
-                            "Гүйлгээний утга",
-                          )
-                        }
-                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                        onClick={() => updateStatus(item.id, "approved")}
+                        className="rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text-white"
                       >
-                        Хуулах
+                        Approve
                       </button>
-                    )}
-                  </div>
-                </div>
 
-                <div className="mt-4 grid gap-2 text-sm text-gray-700">
-                  <p>
-                    <span className="font-medium">Resume ID:</span>{" "}
-                    {payment.resume_id}
-                  </p>
-
-                  <p>
-                    <span className="font-medium">Банкны note:</span>{" "}
-                    {payment.bank_note || "-"}
-                  </p>
-
-                  <p>
-                    <span className="font-medium">Created at:</span>{" "}
-                    {new Date(payment.created_at).toLocaleString()}
-                  </p>
-                </div>
-
-                {payment.status === "pending" && (
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => approvePayment(payment)}
-                      disabled={approvingId === payment.id}
-                      className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      {approvingId === payment.id
-                        ? "Approve хийж байна..."
-                        : "Approve"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => copyValue(payment.resume_id, "Resume ID")}
-                      className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50"
-                    >
-                      Resume ID хуулах
-                    </button>
+                      <button
+                        onClick={() => updateStatus(item.id, "rejected")}
+                        className="rounded-xl border border-red-500/40 px-4 py-2 text-sm text-red-300 hover:bg-red-500/10"
+                      >
+                        Reject
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
       </div>
     </main>
   );
