@@ -56,6 +56,8 @@ export default function HomePage() {
   const [logoPosition, setLogoPosition] = useState("top-left");
   const [logoSize, setLogoSize] = useState(80);
 
+  const [clientId, setClientId] = useState("");
+
   useEffect(() => {
     const savedCredits = localStorage.getItem("free_credits");
 
@@ -65,16 +67,28 @@ export default function HomePage() {
       localStorage.setItem("free_credits", "3");
     }
 
-    loadHistory();
-  }, []);
+    let savedClientId = localStorage.getItem("client_id");
 
-  async function loadHistory() {
+    if (!savedClientId) {
+      savedClientId = crypto.randomUUID();
+      localStorage.setItem("client_id", savedClientId);
+    }
+
+    setClientId(savedClientId);
+  }, []);
+  useEffect(() => {
+    if (clientId) {
+      loadHistory(clientId);
+    }
+  }, [clientId]);
+  async function loadHistory(id = clientId) {
+    if (!id) return;
+
     const { data, error } = await supabase
       .from("generations")
       .select("*")
-      .order("created_at", {
-        ascending: false,
-      })
+      .eq("client_id", id)
+      .order("created_at", { ascending: false })
       .limit(8);
 
     if (error) {
@@ -104,7 +118,10 @@ export default function HomePage() {
   }
 
   async function saveGeneration(text: string) {
+    if (!clientId) return;
+
     await supabase.from("generations").insert({
+      client_id: clientId,
       business_type: businessType,
       product,
       goal,
@@ -113,7 +130,7 @@ export default function HomePage() {
       result: text,
     });
 
-    await loadHistory();
+    await loadHistory(clientId);
   }
 
   async function handleGenerateCaption() {
@@ -290,7 +307,11 @@ export default function HomePage() {
   }
 
   async function deleteHistory(id: string) {
-    const { error } = await supabase.from("generations").delete().eq("id", id);
+    const { error } = await supabase
+      .from("generations")
+      .delete()
+      .eq("id", id)
+      .eq("client_id", clientId);
 
     if (error) {
       toast.error("Устгах үед алдаа гарлаа");
