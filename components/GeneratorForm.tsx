@@ -77,14 +77,13 @@ export default function GeneratorForm({
   }
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-white">
+    <section className="relative z-10 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-white">
       <div className="mb-5">
         <h2 className="text-base font-medium">Мэдээлэл</h2>
         <p className="mt-1 text-xs text-slate-500">
           Богино, тодорхой мэдээлэл бичээрэй.
         </p>
       </div>
-
       <div className="space-y-3">
         <div>
           <label className="mb-1.5 block text-xs text-slate-400">Бизнес</label>
@@ -243,6 +242,7 @@ export default function GeneratorForm({
 
         <div className="space-y-2 pt-2">
           <button
+            type="button"
             onClick={onGenerateCaption}
             disabled={loadingText || loadingImage}
             className="w-full rounded-xl bg-pink-500 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
@@ -251,6 +251,7 @@ export default function GeneratorForm({
           </button>
 
           <button
+            type="button"
             onClick={onGenerateImage}
             disabled={loadingText || loadingImage}
             className="w-full rounded-xl border border-pink-400/40 bg-pink-500/10 px-4 py-2.5 text-sm font-medium text-pink-200 disabled:cursor-not-allowed disabled:opacity-40"

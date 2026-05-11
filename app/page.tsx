@@ -334,6 +334,7 @@ export default function HomePage() {
               />
 
               <button
+                type="button"
                 onClick={checkPlan}
                 className="rounded-xl bg-pink-500 px-5 py-3 text-sm font-medium text-white"
               >
@@ -346,7 +347,7 @@ export default function HomePage() {
               идэвхжүүлнэ.
             </p>
           </div>
-          <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
+          <div className="grid gap-5 lg:grid-cols-[360px_1fr] lg:items-start">
             <GeneratorForm
               businessType={businessType}
               setBusinessType={setBusinessType}
@@ -377,7 +378,6 @@ export default function HomePage() {
               onClear={clearAll}
               hasResult={!!result || !!generatedImage}
             />
-
             <section className="grid gap-5 lg:grid-cols-2">
               <CaptionCard result={result} onCopy={() => copyText()} />
 
