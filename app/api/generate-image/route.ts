@@ -12,16 +12,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    const {
-      businessType,
-      product,
-      goal,
-      tone,
-      platform,
-      headline,
-      offer,
-      cta,
-    } = body;
+    const { businessType, product, goal, tone, platform } = body;
 
     if (!businessType || !product || !goal) {
       return NextResponse.json(
@@ -31,7 +22,7 @@ export async function POST(req: Request) {
     }
 
     const prompt = `
-Create a premium finished social media advertisement poster with integrated readable typography.
+Create a premium social media advertising poster BACKGROUND ONLY.
 
 Business type: ${businessType}
 Product/service: ${product}
@@ -39,35 +30,24 @@ Campaign goal: ${goal}
 Brand tone: ${tone}
 Platform: ${platform}
 
-Poster text to include:
-Headline: ${headline || product}
-Offer: ${offer || ""}
-CTA: ${cta || "Order now"}
+IMPORTANT:
+- Do NOT include any text
+- Do NOT include letters
+- Do NOT include numbers
+- Do NOT include prices
+- Do NOT include currency symbols
+- Do NOT include logo
+- Leave clean empty space for text overlay
 
-Design style:
-- Premium modern Facebook/Instagram ad poster
-- Dark luxury background with pink / purple neon accents
-- Professional graphic design layout
-- Strong product hero composition
-- Beautiful spacing and hierarchy
+Design:
+- Premium Facebook / Instagram ad visual
+- Dark luxury background
+- Neon pink and purple accents
+- Professional product hero composition
 - Glossy commercial lighting
-- Clean premium typography
-- Large readable headline
-- Offer badge if offer exists
-- CTA button-style element
-- Looks like a finished ad creative made by a senior designer
-- No tiny unreadable text
-- No random extra words
-- No duplicated text
-- No watermark
-- High-end social media campaign design
-
-Layout:
-- Portrait poster
-- Keep all text inside safe margins
-- Product/service should be visually attractive
-- Balanced composition
-- Dark planet / neon pink aesthetic
+- Clean safe margins
+- High-end modern advertising style
+- Looks like a senior designer made it
 `;
 
     const response = await openai.images.generate({

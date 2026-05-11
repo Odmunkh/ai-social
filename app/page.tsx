@@ -250,10 +250,16 @@ export default function HomePage() {
   }
 
   async function downloadPoster() {
-    if (!generatedImage) return;
+    if (!posterRef.current) return;
+
+    const canvas = await html2canvas(posterRef.current, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+    });
 
     const link = document.createElement("a");
-    link.href = generatedImage;
+    link.href = canvas.toDataURL("image/png");
     link.download = "poster.png";
     link.click();
 
