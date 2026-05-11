@@ -364,6 +364,12 @@ export default function HomePage() {
               setOffer={setOffer}
               cta={cta}
               setCta={setCta}
+              logoPreview={logoPreview}
+              setLogoPreview={setLogoPreview}
+              logoPosition={logoPosition}
+              setLogoPosition={setLogoPosition}
+              logoSize={logoSize}
+              setLogoSize={setLogoSize}
               loadingText={loadingText}
               loadingImage={loadingImage}
               onGenerateCaption={handleGenerateCaption}
