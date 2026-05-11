@@ -332,11 +332,6 @@ export default function HomePage() {
             creditsLeft={creditsLeft}
             isPro={isPro}
             onUpgrade={() => setPricingOpen(true)}
-            onTestPro={() => {
-              setIsPro(true);
-
-              toast.success("Pro enabled");
-            }}
           />
           <div className="mb-5 rounded-2xl border border-pink-500/20 bg-pink-500/10 p-4">
             <div className="flex flex-col gap-3 md:flex-row">
